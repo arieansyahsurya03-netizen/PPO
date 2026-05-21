@@ -198,12 +198,12 @@ function App() {
           <span>{label}</span>
           <Droplets className="h-3.5 w-3.5 text-slate-300 md:h-4 md:w-4" />
         </div>
-        <div className="mt-3 flex items-end justify-between md:mt-4">
+        <div className="mt-3 flex flex-col gap-2 md:mt-4">
           <div className="text-2xl font-semibold text-white md:text-3xl">
             {value.toFixed(0)}%
           </div>
           <span
-            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold md:text-xs ${tone.className}`}
+            className={`w-fit rounded-full border px-2.5 py-1 text-[11px] font-semibold md:text-xs ${tone.className}`}
           >
             {tone.label}
           </span>
@@ -260,7 +260,7 @@ function App() {
               <span>Average</span>
               <Gauge className="h-3.5 w-3.5 text-amber-200 md:h-4 md:w-4" />
             </div>
-            <div className="mt-3 text-2xl font-semibold text-amber-100 md:mt-4 md:text-3xl">
+            <div className="mt-3 text-center text-2xl font-semibold text-amber-100 md:mt-4 md:text-3xl">
               {averageMoisture.toFixed(0)}%
             </div>
           </div>
