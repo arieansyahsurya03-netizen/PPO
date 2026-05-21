@@ -24,3 +24,27 @@ npm run preview
 ## Notes
 
 Dummy sensor values update every 2 seconds to mimic real device behavior.
+
+## InfluxDB Simulator
+
+The dashboard can simulate sending sensor data to InfluxDB. Copy `.env.example` to `.env` and fill in the values.
+
+Required values:
+
+- VITE_INFLUX_URL
+- VITE_INFLUX_ORG
+- VITE_INFLUX_BUCKET
+- VITE_INFLUX_TOKEN
+
+Optional values (defaults shown in `.env.example`):
+
+- VITE_INFLUX_MEASUREMENT
+- VITE_INFLUX_TAGS
+
+Bucket and tags used by default:
+
+- Bucket: `soil_moisture`
+- Measurement: `soil_moisture`
+- Tags: `deviceId=esp32-01`, `location=greenhouse-a`
+
+Create the bucket in your InfluxDB UI and use an API token with write access. For production, do not expose tokens in the browser. Use a backend proxy instead.

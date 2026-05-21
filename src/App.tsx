@@ -16,11 +16,17 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import {
+  canWriteInflux,
+  getInfluxConfig,
+  writeInfluxSample,
+} from './influxSimulator'
 
 const SENSOR_KEYS = ['sensor1', 'sensor2', 'sensor3'] as const
 
 type SensorKey = (typeof SENSOR_KEYS)[number]
 type Mode = 'auto' | 'manual'
+type SimStatus = 'idle' | 'running' | 'error'
 
 interface SensorSnapshot {
   time: string
@@ -94,6 +100,10 @@ function App() {
   const [clock, setClock] = useState(new Date())
   const [isOnline] = useState(true)
   const [mode, setMode] = useState<Mode>('auto')
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [simStatus, setSimStatus] = useState<SimStatus>('idle')
+  const [lastSimAt, setLastSimAt] = useState<Date | null>(null)
+  const [simError, setSimError] = useState<string | null>(null)
   const [actuators, setActuators] = useState<ActuatorState>({
     pump: false,
     valve: false,
@@ -156,6 +166,12 @@ function App() {
     return sum / 3
   }, [sensorValues])
 
+  const influxConfig = useMemo(() => getInfluxConfig(), [])
+  const influxReady = useMemo(
+    () => canWriteInflux(influxConfig),
+    [influxConfig],
+  )
+
   useEffect(() => {
     if (mode !== 'auto') {
       return
@@ -165,6 +181,59 @@ function App() {
     const valveOn = averageMoisture < 40
     setActuators({ pump: pumpOn, valve: valveOn })
   }, [averageMoisture, mode])
+
+  useEffect(() => {
+    if (!isSimulating) {
+      setSimStatus('idle')
+      return
+    }
+    if (!influxReady) {
+      setSimStatus('error')
+      setSimError('Missing InfluxDB configuration')
+      return
+    }
+
+    let cancelled = false
+    const sample = {
+      time: Date.now(),
+      sensor1: sensorValues.sensor1,
+      sensor2: sensorValues.sensor2,
+      sensor3: sensorValues.sensor3,
+      average: averageMoisture,
+      pump: actuators.pump,
+      valve: actuators.valve,
+      mode,
+    }
+
+    writeInfluxSample(influxConfig, sample)
+      .then(() => {
+        if (cancelled) {
+          return
+        }
+        setSimStatus('running')
+        setSimError(null)
+        setLastSimAt(new Date())
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return
+        }
+        setSimStatus('error')
+        setSimError(error instanceof Error ? error.message : 'Influx write failed')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    isSimulating,
+    influxReady,
+    influxConfig,
+    sensorValues,
+    averageMoisture,
+    actuators,
+    mode,
+  ])
 
   const clockLabel = useMemo(
     () =>
@@ -216,6 +285,15 @@ function App() {
     active
       ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200'
       : 'border-slate-600/60 bg-slate-800/50 text-slate-300'
+
+  const simStatusLabel =
+    simStatus === 'running' ? 'Running' : simStatus === 'error' ? 'Error' : 'Ready'
+  const simStatusClass =
+    simStatus === 'running'
+      ? 'bg-emerald-500/15 text-emerald-200'
+      : simStatus === 'error'
+        ? 'bg-rose-500/15 text-rose-200'
+        : 'bg-slate-500/15 text-slate-200'
 
   return (
     <div className="min-h-screen text-slate-100">
@@ -273,6 +351,47 @@ function App() {
               <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 md:text-xs">
                 Mode
               </span>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-700/70 bg-slate-900/60 px-3 py-3 text-xs text-slate-200 md:px-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 md:text-xs">
+                  InfluxDB Simulator
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${simStatusClass}`}>
+                  {simStatusLabel}
+                </span>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-400 md:text-xs">
+                Sends the latest sensor snapshot every 2 seconds.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSimulating((prev) => !prev)}
+                  disabled={!influxReady}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition md:text-xs ${
+                    influxReady
+                      ? 'bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30'
+                      : 'cursor-not-allowed bg-slate-700/40 text-slate-400'
+                  }`}
+                >
+                  {isSimulating ? 'Stop Simulation' : 'Run Simulation'}
+                </button>
+                {lastSimAt && (
+                  <span className="text-[10px] text-slate-400 md:text-xs">
+                    Last sent {lastSimAt.toLocaleTimeString('en-US', { hour12: false })}
+                  </span>
+                )}
+              </div>
+              {!influxReady && (
+                <p className="mt-2 text-[10px] text-amber-200 md:text-xs">
+                  Set VITE_INFLUX_URL, VITE_INFLUX_ORG, VITE_INFLUX_BUCKET, VITE_INFLUX_TOKEN.
+                </p>
+              )}
+              {simError && (
+                <p className="mt-2 text-[10px] text-rose-200 md:text-xs">{simError}</p>
+              )}
             </div>
 
             <button
