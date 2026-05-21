@@ -17,16 +17,16 @@ import {
   YAxis,
 } from 'recharts'
 import {
-  canWriteInflux,
+  canReadInflux,
+  fetchInfluxHistory,
   getInfluxConfig,
-  writeInfluxSample,
-} from './influxSimulator'
+} from './influxClient'
 
 const SENSOR_KEYS = ['sensor1', 'sensor2', 'sensor3'] as const
 
 type SensorKey = (typeof SENSOR_KEYS)[number]
 type Mode = 'auto' | 'manual'
-type SimStatus = 'idle' | 'running' | 'error'
+type DataStatus = 'idle' | 'loading' | 'live' | 'error'
 
 interface SensorSnapshot {
   time: string
@@ -41,9 +41,6 @@ interface ActuatorState {
   valve: boolean
 }
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value))
-
 const formatTimeLabel = (date: Date) =>
   date.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -51,11 +48,6 @@ const formatTimeLabel = (date: Date) =>
     second: '2-digit',
     hour12: false,
   })
-
-const nextSensorValue = (current: number) => {
-  const drift = (Math.random() * 10 - 5) * 0.6
-  return clamp(current + drift, 0, 100)
-}
 
 const getMoistureTone = (value: number) => {
   if (value < 30) {
@@ -76,87 +68,27 @@ const getMoistureTone = (value: number) => {
   }
 }
 
-const buildInitialHistory = (values: Record<SensorKey, number>) => {
-  const now = Date.now()
-  return Array.from({ length: 6 }, (_, index) => {
-    const stamp = new Date(now - (5 - index) * 2000)
-    const jitter = () => clamp(values.sensor1 + (Math.random() * 6 - 3), 0, 100)
-    const sensor1 = jitter()
-    const sensor2 = clamp(values.sensor2 + (Math.random() * 6 - 3), 0, 100)
-    const sensor3 = clamp(values.sensor3 + (Math.random() * 6 - 3), 0, 100)
-    const average = (sensor1 + sensor2 + sensor3) / 3
-
-    return {
-      time: formatTimeLabel(stamp),
-      sensor1,
-      sensor2,
-      sensor3,
-      average,
-    }
-  })
-}
-
 function App() {
   const [clock, setClock] = useState(new Date())
-  const [isOnline] = useState(true)
   const [mode, setMode] = useState<Mode>('auto')
-  const [isSimulating, setIsSimulating] = useState(false)
-  const [simStatus, setSimStatus] = useState<SimStatus>('idle')
-  const [lastSimAt, setLastSimAt] = useState<Date | null>(null)
-  const [simError, setSimError] = useState<string | null>(null)
+  const [dataStatus, setDataStatus] = useState<DataStatus>('idle')
+  const [dataError, setDataError] = useState<string | null>(null)
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   const [actuators, setActuators] = useState<ActuatorState>({
     pump: false,
     valve: false,
   })
   const [sensorValues, setSensorValues] = useState<Record<SensorKey, number>>({
-    sensor1: 46,
-    sensor2: 52,
-    sensor3: 61,
+    sensor1: 0,
+    sensor2: 0,
+    sensor3: 0,
   })
-  const [history, setHistory] = useState<SensorSnapshot[]>(() =>
-    buildInitialHistory({
-      sensor1: 46,
-      sensor2: 52,
-      sensor3: 61,
-    }),
-  )
+  const [history, setHistory] = useState<SensorSnapshot[]>([])
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setClock(new Date())
     }, 1000)
-
-    return () => window.clearInterval(intervalId)
-  }, [])
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      // Update the sensor values first, then append a history point.
-      setSensorValues((prev) => {
-        const updated = {
-          sensor1: nextSensorValue(prev.sensor1),
-          sensor2: nextSensorValue(prev.sensor2),
-          sensor3: nextSensorValue(prev.sensor3),
-        }
-
-        const now = new Date()
-        const average = (updated.sensor1 + updated.sensor2 + updated.sensor3) / 3
-        setHistory((prevHistory) => {
-          const next = [
-            ...prevHistory,
-            {
-              time: formatTimeLabel(now),
-              ...updated,
-              average,
-            },
-          ]
-
-          return next.slice(-20)
-        })
-
-        return updated
-      })
-    }, 2000)
 
     return () => window.clearInterval(intervalId)
   }, [])
@@ -168,72 +100,100 @@ function App() {
 
   const influxConfig = useMemo(() => getInfluxConfig(), [])
   const influxReady = useMemo(
-    () => canWriteInflux(influxConfig),
+    () => canReadInflux(influxConfig),
     [influxConfig],
   )
 
   useEffect(() => {
-    if (mode !== 'auto') {
+    if (!influxReady) {
+      setDataStatus('error')
+      setDataError('Missing InfluxDB configuration')
+      return
+    }
+
+    let cancelled = false
+    const fetchData = async () => {
+      try {
+        if (!cancelled) {
+          setDataStatus((prev) => (prev === 'idle' ? 'loading' : prev))
+        }
+        const rows = await fetchInfluxHistory(influxConfig)
+        if (cancelled) {
+          return
+        }
+        if (rows.length === 0) {
+          setDataStatus('error')
+          setDataError('No data found for the selected bucket/tags')
+          return
+        }
+
+        const normalizedHistory = rows.map((row) => {
+          const sensor1 = row.sensor1 ?? 0
+          const sensor2 = row.sensor2 ?? 0
+          const sensor3 = row.sensor3 ?? 0
+          const average =
+            row.average ?? (sensor1 + sensor2 + sensor3) / 3
+
+          return {
+            time: formatTimeLabel(new Date(row.time)),
+            sensor1,
+            sensor2,
+            sensor3,
+            average,
+          }
+        })
+
+        const latest = rows[rows.length - 1]
+        const latestSensor1 = latest.sensor1 ?? 0
+        const latestSensor2 = latest.sensor2 ?? 0
+        const latestSensor3 = latest.sensor3 ?? 0
+
+        setHistory(normalizedHistory)
+        setSensorValues({
+          sensor1: latestSensor1,
+          sensor2: latestSensor2,
+          sensor3: latestSensor3,
+        })
+
+        if (typeof latest.pump === 'boolean' || typeof latest.valve === 'boolean') {
+          setActuators((prev) => ({
+            pump: typeof latest.pump === 'boolean' ? latest.pump : prev.pump,
+            valve: typeof latest.valve === 'boolean' ? latest.valve : prev.valve,
+          }))
+        }
+
+        setLastSyncAt(new Date())
+        setDataStatus('live')
+        setDataError(null)
+      } catch (error) {
+        if (cancelled) {
+          return
+        }
+        setDataStatus('error')
+        setDataError(error instanceof Error ? error.message : 'Influx query failed')
+      }
+    }
+
+    fetchData()
+    const intervalId = window.setInterval(fetchData, 2000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [influxReady, influxConfig])
+
+  useEffect(() => {
+    if (mode !== 'auto' || dataStatus === 'live') {
       return
     }
 
     const pumpOn = averageMoisture < 35
     const valveOn = averageMoisture < 40
     setActuators({ pump: pumpOn, valve: valveOn })
-  }, [averageMoisture, mode])
+  }, [averageMoisture, mode, dataStatus])
 
-  useEffect(() => {
-    if (!isSimulating) {
-      setSimStatus('idle')
-      return
-    }
-    if (!influxReady) {
-      setSimStatus('error')
-      setSimError('Missing InfluxDB configuration')
-      return
-    }
-
-    let cancelled = false
-    const sample = {
-      time: Date.now(),
-      sensor1: sensorValues.sensor1,
-      sensor2: sensorValues.sensor2,
-      sensor3: sensorValues.sensor3,
-      average: averageMoisture,
-      pump: actuators.pump,
-      valve: actuators.valve,
-      mode,
-    }
-
-    writeInfluxSample(influxConfig, sample)
-      .then(() => {
-        if (cancelled) {
-          return
-        }
-        setSimStatus('running')
-        setSimError(null)
-        setLastSimAt(new Date())
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return
-        }
-        setSimStatus('error')
-        setSimError(error instanceof Error ? error.message : 'Influx write failed')
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    isSimulating,
-    influxReady,
-    influxConfig,
-    sensorValues,
-    averageMoisture,
-    actuators,
-    mode,
-  ])
+  const isOnline = dataStatus === 'live'
 
   const clockLabel = useMemo(
     () =>
@@ -286,14 +246,22 @@ function App() {
       ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200'
       : 'border-slate-600/60 bg-slate-800/50 text-slate-300'
 
-  const simStatusLabel =
-    simStatus === 'running' ? 'Running' : simStatus === 'error' ? 'Error' : 'Ready'
-  const simStatusClass =
-    simStatus === 'running'
+  const dataStatusLabel =
+    dataStatus === 'live'
+      ? 'Live'
+      : dataStatus === 'loading'
+        ? 'Loading'
+        : dataStatus === 'error'
+          ? 'Error'
+          : 'Idle'
+  const dataStatusClass =
+    dataStatus === 'live'
       ? 'bg-emerald-500/15 text-emerald-200'
-      : simStatus === 'error'
-        ? 'bg-rose-500/15 text-rose-200'
-        : 'bg-slate-500/15 text-slate-200'
+      : dataStatus === 'loading'
+        ? 'bg-sky-500/15 text-sky-200'
+        : dataStatus === 'error'
+          ? 'bg-rose-500/15 text-rose-200'
+          : 'bg-slate-500/15 text-slate-200'
 
   return (
     <div className="min-h-screen text-slate-100">
@@ -356,31 +324,19 @@ function App() {
             <div className="mt-4 rounded-2xl border border-slate-700/70 bg-slate-900/60 px-3 py-3 text-xs text-slate-200 md:px-4">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 md:text-xs">
-                  InfluxDB Simulator
+                  InfluxDB Live Data
                 </span>
-                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${simStatusClass}`}>
-                  {simStatusLabel}
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${dataStatusClass}`}>
+                  {dataStatusLabel}
                 </span>
               </div>
               <p className="mt-2 text-[10px] text-slate-400 md:text-xs">
-                Sends the latest sensor snapshot every 2 seconds.
+                Refreshes from InfluxDB every 2 seconds.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsSimulating((prev) => !prev)}
-                  disabled={!influxReady}
-                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition md:text-xs ${
-                    influxReady
-                      ? 'bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30'
-                      : 'cursor-not-allowed bg-slate-700/40 text-slate-400'
-                  }`}
-                >
-                  {isSimulating ? 'Stop Simulation' : 'Run Simulation'}
-                </button>
-                {lastSimAt && (
+                {lastSyncAt && (
                   <span className="text-[10px] text-slate-400 md:text-xs">
-                    Last sent {lastSimAt.toLocaleTimeString('en-US', { hour12: false })}
+                    Last sync {lastSyncAt.toLocaleTimeString('en-US', { hour12: false })}
                   </span>
                 )}
               </div>
@@ -389,8 +345,8 @@ function App() {
                   Set VITE_INFLUX_URL, VITE_INFLUX_ORG, VITE_INFLUX_BUCKET, VITE_INFLUX_TOKEN.
                 </p>
               )}
-              {simError && (
-                <p className="mt-2 text-[10px] text-rose-200 md:text-xs">{simError}</p>
+              {dataError && (
+                <p className="mt-2 text-[10px] text-rose-200 md:text-xs">{dataError}</p>
               )}
             </div>
 

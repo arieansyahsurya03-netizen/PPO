@@ -25,9 +25,9 @@ npm run preview
 
 Dummy sensor values update every 2 seconds to mimic real device behavior.
 
-## InfluxDB Simulator
+## InfluxDB Live Data
 
-The dashboard can simulate sending sensor data to InfluxDB. Copy `.env.example` to `.env` and fill in the values.
+The dashboard reads sensor data directly from InfluxDB. Copy `.env.example` to `.env` and fill in the values.
 
 Required values:
 
@@ -47,4 +47,4 @@ Bucket and tags used by default:
 - Measurement: `soil_moisture`
 - Tags: `deviceId=esp32-01`, `location=greenhouse-a`
 
-Create the bucket in your InfluxDB UI and use an API token with write access. For production, do not expose tokens in the browser. Use a backend proxy instead.
+Create the bucket in your InfluxDB UI and use an API token with read access. For production, do not expose tokens in the browser. Use a backend proxy instead.
