@@ -251,11 +251,11 @@ function App() {
           </div>
         </header>
 
-        <section className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-4 fade-up">
+        <section className="grid grid-cols-3 gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-4 fade-up">
           {renderSensorCard('Sensor 1', sensorValues.sensor1)}
           {renderSensorCard('Sensor 2', sensorValues.sensor2)}
           {renderSensorCard('Sensor 3', sensorValues.sensor3)}
-          <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 shadow-lg shadow-black/20 backdrop-blur md:p-5">
+          <div className="col-span-3 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 shadow-lg shadow-black/20 backdrop-blur md:col-span-1 md:p-5">
             <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-amber-200/70 md:text-xs">
               <span>Average</span>
               <Gauge className="h-3.5 w-3.5 text-amber-200 md:h-4 md:w-4" />
@@ -364,15 +364,24 @@ function App() {
                 Last 20 points
               </span>
             </div>
-            <div className="mt-4 h-64 md:mt-6 md:h-72">
+            <div className="mt-4 h-56 md:mt-6 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={history}>
+                <LineChart
+                  data={history}
+                  margin={{ top: 24, right: 12, left: -6, bottom: 6 }}
+                >
                   <CartesianGrid strokeDasharray="4 6" stroke="#1f2937" />
-                  <XAxis dataKey="time" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                  <XAxis
+                    dataKey="time"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 10 }}
+                    tickMargin={6}
+                  />
                   <YAxis
                     domain={[0, 100]}
                     stroke="#94a3b8"
-                    tick={{ fontSize: 11 }}
+                    tick={{ fontSize: 10 }}
+                    tickMargin={6}
                   />
                   <Tooltip
                     contentStyle={{
@@ -387,7 +396,12 @@ function App() {
                         : `${value ?? ''}`
                     }
                   />
-                  <Legend wrapperStyle={{ color: '#e2e8f0' }} />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    iconSize={8}
+                    wrapperStyle={{ color: '#e2e8f0', fontSize: 10 }}
+                  />
                   <Line
                     type="monotone"
                     dataKey="sensor1"
