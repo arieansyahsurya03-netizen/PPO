@@ -193,17 +193,17 @@ function App() {
     const tone = getMoistureTone(value)
 
     return (
-      <div className="rounded-2xl border border-slate-700/60 bg-slate-900/60 p-5 shadow-lg shadow-black/20 backdrop-blur">
-        <div className="flex items-center justify-between text-sm uppercase tracking-[0.2em] text-slate-400">
+      <div className="rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4 shadow-lg shadow-black/20 backdrop-blur md:p-5">
+        <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-slate-400 md:text-xs">
           <span>{label}</span>
-          <Droplets className="h-4 w-4 text-slate-300" />
+          <Droplets className="h-3.5 w-3.5 text-slate-300 md:h-4 md:w-4" />
         </div>
-        <div className="mt-4 flex items-end justify-between">
-          <div className="text-3xl font-semibold text-white">
+        <div className="mt-3 flex items-end justify-between md:mt-4">
+          <div className="text-2xl font-semibold text-white md:text-3xl">
             {value.toFixed(0)}%
           </div>
           <span
-            className={`rounded-full border px-3 py-1 text-xs font-semibold ${tone.className}`}
+            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold md:text-xs ${tone.className}`}
           >
             {tone.label}
           </span>
@@ -219,23 +219,23 @@ function App() {
 
   return (
     <div className="min-h-screen text-slate-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-8 md:px-8">
-        <header className="flex flex-col gap-6 rounded-3xl border border-slate-700/50 bg-slate-950/70 p-6 shadow-2xl shadow-black/40 backdrop-blur lg:flex-row lg:items-center lg:justify-between">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:gap-8 md:px-8 md:py-8">
+        <header className="flex flex-col gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/70 p-4 shadow-2xl shadow-black/40 backdrop-blur md:p-6 lg:flex-row lg:items-center lg:justify-between fade-up">
           <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400 md:text-xs">
               IoT Monitoring Suite
             </p>
-            <h1 className="text-3xl font-semibold text-white md:text-4xl">
+            <h1 className="text-2xl font-semibold text-white sm:text-3xl md:text-4xl">
               IoT Soil Moisture Monitoring
             </h1>
           </div>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="rounded-2xl border border-slate-700/70 bg-slate-900/60 px-4 py-3 text-sm text-slate-200">
+          <div className="flex flex-wrap items-center gap-2 md:gap-4">
+            <div className="rounded-2xl border border-slate-700/70 bg-slate-900/60 px-3 py-2 text-xs text-slate-200 md:px-4 md:py-3 md:text-sm">
               {clockLabel}
             </div>
-            <div className="flex items-center gap-2 rounded-full border border-slate-700/70 bg-slate-900/60 px-4 py-2 text-sm">
+            <div className="flex items-center gap-2 rounded-full border border-slate-700/70 bg-slate-900/60 px-3 py-2 text-xs md:px-4 md:text-sm">
               <Wifi
-                className={`h-4 w-4 ${
+                className={`h-3.5 w-3.5 md:h-4 md:w-4 ${
                   isOnline ? 'text-emerald-300' : 'text-rose-300'
                 }`}
               />
@@ -251,26 +251,26 @@ function App() {
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-4 fade-up">
           {renderSensorCard('Sensor 1', sensorValues.sensor1)}
           {renderSensorCard('Sensor 2', sensorValues.sensor2)}
           {renderSensorCard('Sensor 3', sensorValues.sensor3)}
-          <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-5 shadow-lg shadow-black/20 backdrop-blur">
-            <div className="flex items-center justify-between text-sm uppercase tracking-[0.2em] text-amber-200/70">
+          <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 shadow-lg shadow-black/20 backdrop-blur md:p-5">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-amber-200/70 md:text-xs">
               <span>Average</span>
-              <Gauge className="h-4 w-4 text-amber-200" />
+              <Gauge className="h-3.5 w-3.5 text-amber-200 md:h-4 md:w-4" />
             </div>
-            <div className="mt-4 text-3xl font-semibold text-amber-100">
+            <div className="mt-3 text-2xl font-semibold text-amber-100 md:mt-4 md:text-3xl">
               {averageMoisture.toFixed(0)}%
             </div>
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[1.2fr_2fr]">
-          <div className="rounded-3xl border border-slate-700/60 bg-slate-950/70 p-6 shadow-xl shadow-black/30 backdrop-blur">
+        <section className="grid gap-4 lg:grid-cols-[1.2fr_2fr] fade-up">
+          <div className="rounded-3xl border border-slate-700/60 bg-slate-950/70 p-4 shadow-xl shadow-black/30 backdrop-blur md:p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Control & Actuators</h2>
-              <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+              <h2 className="text-base font-semibold text-white md:text-lg">Control & Actuators</h2>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 md:text-xs">
                 Mode
               </span>
             </div>
@@ -280,19 +280,19 @@ function App() {
               onClick={() =>
                 setMode((prev) => (prev === 'auto' ? 'manual' : 'auto'))
               }
-              className="mt-4 flex w-full items-center justify-between rounded-2xl border border-slate-700/70 bg-slate-900/60 px-4 py-3 text-sm text-slate-200 transition hover:border-slate-500/70"
+              className="mt-4 flex w-full items-center justify-between rounded-2xl border border-slate-700/70 bg-slate-900/60 px-3 py-2 text-xs text-slate-200 transition hover:border-slate-500/70 md:px-4 md:py-3 md:text-sm"
             >
               <div className="flex items-center gap-3">
-                <ToggleLeft className="h-5 w-5 text-slate-300" />
+                <ToggleLeft className="h-4 w-4 text-slate-300 md:h-5 md:w-5" />
                 <span className="font-semibold capitalize">{mode}</span>
-                <span className="text-xs text-slate-400">
+                <span className="text-[10px] text-slate-400 md:text-xs">
                   {mode === 'auto'
                     ? 'Auto logic controls devices.'
                     : 'Manual override enabled.'}
                 </span>
               </div>
               <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold md:px-3 md:text-xs ${
                   mode === 'auto'
                     ? 'bg-emerald-500/15 text-emerald-200'
                     : 'bg-amber-500/15 text-amber-200'
@@ -302,7 +302,7 @@ function App() {
               </span>
             </button>
 
-            <div className="mt-6 space-y-4">
+            <div className="mt-4 space-y-3 md:mt-6 md:space-y-4">
               <div
                 role={mode === 'manual' ? 'button' : undefined}
                 tabIndex={mode === 'manual' ? 0 : -1}
@@ -312,7 +312,7 @@ function App() {
                     toggleActuator('pump')
                   }
                 }}
-                className={`flex items-center justify-between rounded-2xl border px-4 py-3 transition ${
+                className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-xs transition md:px-4 md:py-3 md:text-sm ${
                   actuatorClass(actuators.pump)
                 } ${
                   mode === 'manual'
@@ -321,10 +321,10 @@ function App() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Power className="h-5 w-5" />
+                  <Power className="h-4 w-4 md:h-5 md:w-5" />
                   <span className="font-semibold">Pump</span>
                 </div>
-                <span className="text-sm">
+                <span className="text-[11px] md:text-sm">
                   {actuators.pump ? 'On' : 'Off'}
                 </span>
               </div>
@@ -338,7 +338,7 @@ function App() {
                     toggleActuator('valve')
                   }
                 }}
-                className={`flex items-center justify-between rounded-2xl border px-4 py-3 transition ${
+                className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-xs transition md:px-4 md:py-3 md:text-sm ${
                   actuatorClass(actuators.valve)
                 } ${
                   mode === 'manual'
@@ -347,32 +347,32 @@ function App() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Power className="h-5 w-5" />
+                  <Power className="h-4 w-4 md:h-5 md:w-5" />
                   <span className="font-semibold">Solenoid Valve</span>
                 </div>
-                <span className="text-sm">
+                <span className="text-[11px] md:text-sm">
                   {actuators.valve ? 'On' : 'Off'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-700/60 bg-slate-950/70 p-6 shadow-xl shadow-black/30 backdrop-blur">
+          <div className="rounded-3xl border border-slate-700/60 bg-slate-950/70 p-4 shadow-xl shadow-black/30 backdrop-blur md:p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Historical Trends</h2>
-              <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+              <h2 className="text-base font-semibold text-white md:text-lg">Historical Trends</h2>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 md:text-xs">
                 Last 20 points
               </span>
             </div>
-            <div className="mt-6 h-72">
+            <div className="mt-4 h-64 md:mt-6 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={history}>
                   <CartesianGrid strokeDasharray="4 6" stroke="#1f2937" />
-                  <XAxis dataKey="time" stroke="#94a3b8" tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="time" stroke="#94a3b8" tick={{ fontSize: 11 }} />
                   <YAxis
                     domain={[0, 100]}
                     stroke="#94a3b8"
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 11 }}
                   />
                   <Tooltip
                     contentStyle={{
@@ -391,28 +391,28 @@ function App() {
                   <Line
                     type="monotone"
                     dataKey="sensor1"
-                    stroke="#7dd3fc"
+                    stroke="#8fb8d8"
                     strokeWidth={2}
                     dot={false}
                   />
                   <Line
                     type="monotone"
                     dataKey="sensor2"
-                    stroke="#86efac"
+                    stroke="#9ec7b1"
                     strokeWidth={2}
                     dot={false}
                   />
                   <Line
                     type="monotone"
                     dataKey="sensor3"
-                    stroke="#cbd5f5"
+                    stroke="#b7b0d8"
                     strokeWidth={2}
                     dot={false}
                   />
                   <Line
                     type="monotone"
                     dataKey="average"
-                    stroke="#facc15"
+                    stroke="#fde047"
                     strokeWidth={3}
                     dot={false}
                   />
