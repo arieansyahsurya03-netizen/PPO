@@ -21,12 +21,14 @@ import {
   fetchInfluxHistory,
   getInfluxConfig,
 } from './influxClient'
+import { canWriteInflux, writeInfluxSample } from './influxSimulator'
 
 const SENSOR_KEYS = ['sensor1', 'sensor2', 'sensor3'] as const
 
 type SensorKey = (typeof SENSOR_KEYS)[number]
 type Mode = 'auto' | 'manual'
 type DataStatus = 'idle' | 'loading' | 'live' | 'error'
+type SimStatus = 'idle' | 'running' | 'error'
 
 interface SensorSnapshot {
   time: string
@@ -74,6 +76,11 @@ function App() {
   const [dataStatus, setDataStatus] = useState<DataStatus>('idle')
   const [dataError, setDataError] = useState<string | null>(null)
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
+  const [showSimulator, setShowSimulator] = useState(false)
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [simStatus, setSimStatus] = useState<SimStatus>('idle')
+  const [simError, setSimError] = useState<string | null>(null)
+  const [lastSimAt, setLastSimAt] = useState<Date | null>(null)
   const [actuators, setActuators] = useState<ActuatorState>({
     pump: false,
     valve: false,
@@ -101,6 +108,10 @@ function App() {
   const influxConfig = useMemo(() => getInfluxConfig(), [])
   const influxReady = useMemo(
     () => canReadInflux(influxConfig),
+    [influxConfig],
+  )
+  const influxWriteReady = useMemo(
+    () => canWriteInflux(influxConfig),
     [influxConfig],
   )
 
@@ -195,6 +206,57 @@ function App() {
 
   const isOnline = dataStatus === 'live'
 
+  useEffect(() => {
+    if (!isSimulating) {
+      setSimStatus('idle')
+      return
+    }
+    if (!influxWriteReady) {
+      setSimStatus('error')
+      setSimError('Missing InfluxDB write configuration')
+      return
+    }
+
+    let cancelled = false
+    const intervalId = window.setInterval(() => {
+      const sensor1 = Math.random() * 30 + 35
+      const sensor2 = Math.random() * 30 + 35
+      const sensor3 = Math.random() * 30 + 35
+      const average = (sensor1 + sensor2 + sensor3) / 3
+
+      writeInfluxSample(influxConfig, {
+        time: Date.now(),
+        sensor1,
+        sensor2,
+        sensor3,
+        average,
+        pump: average < 35,
+        valve: average < 40,
+        mode: 'auto',
+      })
+        .then(() => {
+          if (cancelled) {
+            return
+          }
+          setSimStatus('running')
+          setSimError(null)
+          setLastSimAt(new Date())
+        })
+        .catch((error) => {
+          if (cancelled) {
+            return
+          }
+          setSimStatus('error')
+          setSimError(error instanceof Error ? error.message : 'Influx write failed')
+        })
+    }, 2000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [isSimulating, influxWriteReady, influxConfig])
+
   const clockLabel = useMemo(
     () =>
       clock.toLocaleString('en-US', {
@@ -260,6 +322,15 @@ function App() {
       : dataStatus === 'loading'
         ? 'bg-sky-500/15 text-sky-200'
         : dataStatus === 'error'
+          ? 'bg-rose-500/15 text-rose-200'
+          : 'bg-slate-500/15 text-slate-200'
+
+    const simStatusLabel =
+      simStatus === 'running' ? 'Running' : simStatus === 'error' ? 'Error' : 'Idle'
+    const simStatusClass =
+      simStatus === 'running'
+        ? 'bg-emerald-500/15 text-emerald-200'
+        : simStatus === 'error'
           ? 'bg-rose-500/15 text-rose-200'
           : 'bg-slate-500/15 text-slate-200'
 
@@ -349,6 +420,14 @@ function App() {
                 <p className="mt-2 text-[10px] text-rose-200 md:text-xs">{dataError}</p>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowSimulator(true)}
+              className="mt-4 w-full rounded-2xl border border-slate-700/70 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500/70 md:px-4 md:py-3 md:text-sm"
+            >
+              Open Simulator
+            </button>
 
             <button
               type="button"
@@ -511,6 +590,63 @@ function App() {
           </div>
         </section>
       </div>
+
+      {showSimulator && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6">
+          <div className="w-full max-w-md rounded-3xl border border-slate-700/70 bg-slate-950/90 p-5 shadow-2xl shadow-black/60 backdrop-blur md:p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-white md:text-lg">InfluxDB Simulator</h3>
+              <button
+                type="button"
+                onClick={() => setShowSimulator(false)}
+                className="rounded-full border border-slate-700/70 px-3 py-1 text-[11px] text-slate-200"
+              >
+                Close
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400 md:text-xs">
+              Send dummy sensor data into your InfluxDB bucket every 2 seconds.
+            </p>
+            <div className="mt-4 rounded-2xl border border-slate-700/70 bg-slate-900/60 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 md:text-xs">
+                  Status
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${simStatusClass}`}>
+                  {simStatusLabel}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSimulating((prev) => !prev)}
+                  disabled={!influxWriteReady}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition md:text-xs ${
+                    influxWriteReady
+                      ? 'bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30'
+                      : 'cursor-not-allowed bg-slate-700/40 text-slate-400'
+                  }`}
+                >
+                  {isSimulating ? 'Stop Simulation' : 'Run Simulation'}
+                </button>
+                {lastSimAt && (
+                  <span className="text-[10px] text-slate-400 md:text-xs">
+                    Last sent {lastSimAt.toLocaleTimeString('en-US', { hour12: false })}
+                  </span>
+                )}
+              </div>
+              {!influxWriteReady && (
+                <p className="mt-2 text-[10px] text-amber-200 md:text-xs">
+                  Set VITE_INFLUX_URL, VITE_INFLUX_ORG, VITE_INFLUX_BUCKET, VITE_INFLUX_TOKEN.
+                </p>
+              )}
+              {simError && (
+                <p className="mt-2 text-[10px] text-rose-200 md:text-xs">{simError}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
