@@ -27,6 +27,7 @@ interface SensorSnapshot {
   sensor1: number
   sensor2: number
   sensor3: number
+  average: number
 }
 
 interface ActuatorState {
@@ -74,12 +75,17 @@ const buildInitialHistory = (values: Record<SensorKey, number>) => {
   return Array.from({ length: 6 }, (_, index) => {
     const stamp = new Date(now - (5 - index) * 2000)
     const jitter = () => clamp(values.sensor1 + (Math.random() * 6 - 3), 0, 100)
+    const sensor1 = jitter()
+    const sensor2 = clamp(values.sensor2 + (Math.random() * 6 - 3), 0, 100)
+    const sensor3 = clamp(values.sensor3 + (Math.random() * 6 - 3), 0, 100)
+    const average = (sensor1 + sensor2 + sensor3) / 3
 
     return {
       time: formatTimeLabel(stamp),
-      sensor1: jitter(),
-      sensor2: clamp(values.sensor2 + (Math.random() * 6 - 3), 0, 100),
-      sensor3: clamp(values.sensor3 + (Math.random() * 6 - 3), 0, 100),
+      sensor1,
+      sensor2,
+      sensor3,
+      average,
     }
   })
 }
@@ -124,12 +130,14 @@ function App() {
         }
 
         const now = new Date()
+        const average = (updated.sensor1 + updated.sensor2 + updated.sensor3) / 3
         setHistory((prevHistory) => {
           const next = [
             ...prevHistory,
             {
               time: formatTimeLabel(now),
               ...updated,
+              average,
             },
           ]
 
@@ -383,22 +391,29 @@ function App() {
                   <Line
                     type="monotone"
                     dataKey="sensor1"
-                    stroke="#38bdf8"
+                    stroke="#7dd3fc"
                     strokeWidth={2}
                     dot={false}
                   />
                   <Line
                     type="monotone"
                     dataKey="sensor2"
-                    stroke="#22c55e"
+                    stroke="#86efac"
                     strokeWidth={2}
                     dot={false}
                   />
                   <Line
                     type="monotone"
                     dataKey="sensor3"
-                    stroke="#f97316"
+                    stroke="#cbd5f5"
                     strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="average"
+                    stroke="#facc15"
+                    strokeWidth={3}
                     dot={false}
                   />
                 </LineChart>
